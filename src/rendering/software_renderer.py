@@ -109,10 +109,12 @@ class SoftwareRenderer:
                     dx2 = x - v2[0]
                     dy2 = y - v2[1]
                     area_orig = cross
+                    if abs(area_orig) < 1e-10:
+                        continue
                     alpha = (dx1 * dy2 - dx2 * dy1) / area_orig
                     beta = (dx2 * dy0 - dx0 * dy2) / area_orig
                     gamma = 1.0 - alpha - beta
-                    if alpha > 0 and beta > 0 and gamma > 0:
+                    if alpha > -0.01 and beta > -0.01 and gamma > -0.01:
                         z = alpha * v0[2] + beta * v1[2] + gamma * v2[2]
                         if z < self.depth_buffer[y, x]:
                             self.depth_buffer[y, x] = z
