@@ -10,7 +10,7 @@ class SimplexNoise:
     """Simple 2D/3D simplex noise implementation."""
     
     def __init__(self, seed: Optional[int] = None):
-        self.perm = np.zeros(512, dtype=np.uint8)
+        self.perm = np.zeros(512, dtype=np.int32)
         grad3 = [
             [1,1,0],[-1,1,0],[1,-1,0],[-1,-1,0],
             [1,0,1],[-1,0,1],[1,0,-1],[-1,0,-1],
@@ -21,7 +21,7 @@ class SimplexNoise:
         if seed is None:
             seed = np.random.randint(0, 2**31)
         
-        p = np.arange(256, dtype=np.uint8)
+        p = np.arange(256, dtype=np.int32)
         np.random.seed(seed)
         np.random.shuffle(p)
         self.perm[:256] = p
