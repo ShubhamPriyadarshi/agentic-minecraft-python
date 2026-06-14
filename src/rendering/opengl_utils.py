@@ -2,6 +2,7 @@
 
 import OpenGL.GL as gl
 import numpy as np
+import ctypes
 
 
 def create_shader_program(vertex_src: str, fragment_src: str) -> int:
@@ -13,9 +14,13 @@ def create_shader_program(vertex_src: str, fragment_src: str) -> int:
     gl.glCompileShader(vertex_shader)
     
     # Check compilation
-    if not gl.glGetShaderiv(vertex_shader, gl.GL_COMPILE_STATUS):
+    status = gl.glGetShaderiv(vertex_shader, gl.GL_COMPILE_STATUS)
+    if not status:
         error = gl.glGetShaderInfoLog(vertex_shader).decode()
         gl.glDeleteShader(vertex_shader)
+        # Debug: print the shader source
+        print(f"VERTEX SHADER SOURCE:\n{vertex_src}")
+        print(f"VERTEX SHADER ERROR: {error}")
         raise RuntimeError(f"Vertex shader compilation failed: {error}")
     
     # Compile fragment shader
@@ -24,8 +29,11 @@ def create_shader_program(vertex_src: str, fragment_src: str) -> int:
     gl.glCompileShader(fragment_shader)
     
     # Check compilation
-    if not gl.glGetShaderiv(fragment_shader, gl.GL_COMPILE_STATUS):
+    status = gl.glGetShaderiv(fragment_shader, gl.GL_COMPILE_STATUS)
+    if not status:
         error = gl.glGetShaderInfoLog(fragment_shader).decode()
+        print(f"FRAGMENT SHADER SOURCE:\n{fragment_src}")
+        print(f"FRAGMENT SHADER ERROR: {error}")
         gl.glDeleteShader(fragment_shader)
         gl.glDeleteShader(vertex_shader)
         raise RuntimeError(f"Fragment shader compilation failed: {error}")
