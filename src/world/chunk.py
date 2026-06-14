@@ -8,7 +8,7 @@ from src.world.blocks import BlockType, BLOCK_DATA, get_block_color
 class Chunk:
     """A single chunk of the world (16xHx16 blocks)."""
     
-    __slots__ = ['x', 'z', 'data', 'mesh_dirty', 'vertices', 'colors',
+    __slots__ = ['x', 'z', 'height', 'data', 'mesh_dirty', 'vertices', 'colors',
                  'textures', 'has_mesh', 'vao', 'vbo', 'ibo', 'index_count']
     
     def __init__(self, x: int, z: int, height: int = 128):
