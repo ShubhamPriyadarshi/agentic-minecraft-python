@@ -33,7 +33,17 @@ class SoftwareRenderer:
         self.screen.fill(self.sky_color)
         self.depth_buffer[:] = np.finfo(np.float32).max
         
+    def resize(self, width: int, height: int):
+        self.width = width
+        self.height = height
+        self.screen = pygame.display.set_mode(
+            (width, height), DOUBLEBUF | RESIZABLE
+        )
+        self.depth_buffer = np.full((height, width), np.finfo(np.float32).max, dtype=np.float32)
+        
     def setup_camera(self, pos, target):
+        self.camera_pos = pos
+        self.camera_target = target
         return np.eye(4, dtype=np.float32)
         
     def setup_projection(self, fov=70.0):
@@ -44,15 +54,18 @@ class SoftwareRenderer:
         fov_rad = math.radians(70.0)
         f = 1.0 / math.tan(fov_rad / 2.0)
         
+        # Get camera position and rotation
+        cam_x, cam_y, cam_z = (self.camera_pos[0], self.camera_pos[1], self.camera_pos[2]) if hasattr(self, 'camera_pos') else (0, 70, 0)
+        yaw = self.rotation[1] if hasattr(self, 'rotation') else 0
+        pitch = self.rotation[0] if hasattr(self, 'rotation') else 0
+        
         screen_verts = []
         for v in vertices:
-            dx, dy, dz = v[0], v[1], v[2]
-            yaw = 0
+            dx, dy, dz = v[0] - cam_x, v[1] - cam_y, v[2] - cam_z
             cos_y = math.cos(yaw)
             sin_y = math.sin(yaw)
             rx = dx * cos_y - dz * sin_y
             rz = dx * sin_y + dz * cos_y
-            pitch = 0
             cos_p = math.cos(pitch)
             sin_p = math.sin(pitch)
             ry = dy * cos_p - rz * sin_p

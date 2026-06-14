@@ -168,14 +168,19 @@ class Game:
         # Setup projection
         proj = self.renderer.setup_projection(fov=70.0)
         
-        # Update shader uniforms
-        gl.glUseProgram(self.renderer.chunk_shader)
+        # Pass rotation to renderer for software mode
+        if IS_MACOS_ARM:
+            self.renderer.rotation = self.player.rotation
         
-        proj_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "projection")
-        view_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "view")
-        
-        gl.glUniformMatrix4fv(view_loc, 1, False, view.astype(np.float32).flatten())
-        gl.glUniformMatrix4fv(proj_loc, 1, False, proj.astype(np.float32).flatten())
+        # Update shader uniforms (OpenGL only)
+        if not IS_MACOS_ARM:
+            gl.glUseProgram(self.renderer.chunk_shader)
+            
+            proj_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "projection")
+            view_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "view")
+            
+            gl.glUniformMatrix4fv(view_loc, 1, False, view.astype(np.float32).flatten())
+            gl.glUniformMatrix4fv(proj_loc, 1, False, proj.astype(np.float32).flatten())
         
         # Draw skybox (OpenGL only)
         if not IS_MACOS_ARM:
