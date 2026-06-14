@@ -55,22 +55,22 @@ class Player:
         
         yaw = np.radians(self.rotation[1])
         
-        if self.keys[pygame.K_w]:
+        if self.keys.get(pygame.K_w, False):
             move[0] -= np.sin(yaw)
             move[2] -= np.cos(yaw)
-        if self.keys[pygame.K_s]:
+        if self.keys.get(pygame.K_s, False):
             move[0] += np.sin(yaw)
             move[2] += np.cos(yaw)
-        if self.keys[pygame.K_a]:
+        if self.keys.get(pygame.K_a, False):
             move[0] -= np.cos(yaw)
             move[2] += np.sin(yaw)
-        if self.keys[pygame.K_d]:
+        if self.keys.get(pygame.K_d, False):
             move[0] += np.cos(yaw)
             move[2] -= np.sin(yaw)
-        if self.keys[pygame.K_SPACE] and self.on_ground:
+        if self.keys.get(pygame.K_SPACE, False) and self.on_ground:
             self.velocity[1] = PLAYER_JUMP_FORCE
             self.on_ground = False
-        if self.keys[pygame.K_LSHIFT]:
+        if self.keys.get(pygame.K_LSHIFT, False):
             self.sprinting = True
         else:
             self.sprinting = False
