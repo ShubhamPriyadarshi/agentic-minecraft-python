@@ -131,7 +131,7 @@ class Game:
     def _update(self, dt: float):
         """Update game state."""
         # Get key state
-        keys = pygame.key.get_pressed()
+        keys = dict(pygame.key.get_pressed())
         self.player.handle_keys(keys)
         
         # Update player
