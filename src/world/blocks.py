@@ -109,7 +109,8 @@ def generate_block_textures() -> Dict[int, Tuple[pygame.Surface, pygame.Surface]
             pygame.draw.rect(surface, (*color, 255), (0, 0, 16, 16))
             
             # Add noise/texture variation
-            np.random.seed(int(block_type) * 1000 + hash(face_name))
+            seed_val = int(block_type) * 1000 + abs(hash(face_name))
+            np.random.seed(seed_val % (2**32))
             for _ in range(40):
                 x = np.random.randint(0, 16)
                 y = np.random.randint(0, 16)
