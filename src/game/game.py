@@ -176,7 +176,15 @@ class Game:
         gl.glUniformMatrix4fv(proj_loc, 1, False, proj.astype(np.float32).flatten())
         
         # Draw skybox
+        gl.glUseProgram(self.renderer.sky_shader)
+        sky_proj_loc = gl.glGetUniformLocation(self.renderer.sky_shader, "projection")
+        sky_view_loc = gl.glGetUniformLocation(self.renderer.sky_shader, "view")
+        proj_matrix = gl.glGetFloatv(gl.GL_PROJECTION_MATRIX)
+        view_matrix = gl.glGetFloatv(gl.GL_MODELVIEW_MATRIX)
+        gl.glUniformMatrix4fv(sky_proj_loc, 1, False, proj_matrix.astype(np.float32).flatten())
+        gl.glUniformMatrix4fv(sky_view_loc, 1, False, view_matrix.astype(np.float32).flatten())
         self.renderer.draw_skybox()
+        gl.glUseProgram(self.renderer.chunk_shader)
         
         # Draw chunks
         gl.glEnable(gl.GL_DEPTH_TEST)
@@ -195,14 +203,18 @@ class Game:
                         gl.glDeleteVertexArrays(1, [chunk.vao])
                     
                     if chunk.vertices.size > 0:
-                        # Create VBO
+                        # Create position VBO
                         chunk.vbo = gl.glGenBuffers(1)
                         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, chunk.vbo)
                         gl.glBufferData(gl.GL_ARRAY_BUFFER, chunk.vertices, gl.GL_STATIC_DRAW)
                         
-                        # Create simple index buffer (each vertex is its own triangle)
+                        # Create color VBO
+                        color_vbo = gl.glGenBuffers(1)
+                        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_vbo)
+                        gl.glBufferData(gl.GL_ARRAY_BUFFER, chunk.colors, gl.GL_STATIC_DRAW)
+                        
+                        # Create simple index buffer
                         num_verts = len(chunk.vertices)
-                        # Create triangle indices: every 4 vertices = 1 face = 2 triangles
                         indices = []
                         for i in range(0, num_verts, 4):
                             indices.extend([i, i+1, i+2, i, i+2, i+3])
@@ -213,13 +225,24 @@ class Game:
                         gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, indices_arr, gl.GL_STATIC_DRAW)
                         chunk.index_count = len(indices)
                         
-                        # Create VAO
+                        # Create VAO with position (location 0) and color (location 1)
                         chunk.vao = gl.glGenVertexArrays(1)
                         gl.glBindVertexArray(chunk.vao)
+                        
+                        # Position attributes
                         gl.glBindBuffer(gl.GL_ARRAY_BUFFER, chunk.vbo)
                         gl.glEnableVertexAttribArray(0)
-                        gl.glVertexAttribPointer(0, 8, gl.GL_FLOAT, False, 32, None)
+                        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 12, None)
+                        
+                        # Color attributes
+                        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_vbo)
+                        gl.glEnableVertexAttribArray(1)
+                        gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False, 12, None)
+                        
                         gl.glBindVertexArray(0)
+                        
+                        # Delete temp color VBO after setup
+                        gl.glDeleteBuffers(1, [color_vbo])
                 
                 self.renderer.draw_chunk(chunk.vao, chunk.vbo, chunk.ibo, chunk.index_count)
         

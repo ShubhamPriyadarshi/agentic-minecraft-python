@@ -8,8 +8,8 @@ from src.world.blocks import BlockType, BLOCK_DATA, get_block_color
 class Chunk:
     """A single chunk of the world (16xHx16 blocks)."""
     
-    __slots__ = ['x', 'z', 'data', 'mesh_dirty', 'vertices', 'textures',
-                 'has_mesh', 'vao', 'vbo', 'ibo', 'index_count']
+    __slots__ = ['x', 'z', 'data', 'mesh_dirty', 'vertices', 'colors',
+                 'textures', 'has_mesh', 'vao', 'vbo', 'ibo', 'index_count']
     
     def __init__(self, x: int, z: int, height: int = 128):
         self.x = x
@@ -17,7 +17,8 @@ class Chunk:
         self.height = height
         self.data = np.zeros((16, height, 16), dtype=np.uint8)
         self.mesh_dirty = True
-        self.vertices: np.ndarray = np.empty((0, 8), dtype=np.float32)
+        self.vertices: np.ndarray = np.empty((0, 3), dtype=np.float32)
+        self.colors: np.ndarray = np.empty((0, 3), dtype=np.float32)
         self.textures: Dict[int, any] = {}
         self.has_mesh = False
         self.vao = 0
@@ -99,11 +100,15 @@ class Chunk:
                                 vertex_offset += 4
         
         if vertices:
-            self.vertices = np.array(vertices, dtype=np.float32)
+            # Split into position and color arrays for ES2 compatibility
+            arr = np.array(vertices, dtype=np.float32)
+            self.vertices = arr[:, :3]  # x, y, z
+            self.colors = arr[:, 3:6]   # r, g, b
             self.index_count = len(indices)
             self.has_mesh = True
         else:
-            self.vertices = np.empty((0, 8), dtype=np.float32)
+            self.vertices = np.empty((0, 3), dtype=np.float32)
+            self.colors = np.empty((0, 3), dtype=np.float32)
             self.index_count = 0
             self.has_mesh = False
         

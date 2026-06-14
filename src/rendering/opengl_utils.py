@@ -67,15 +67,27 @@ def create_ibo(indices: np.ndarray) -> int:
     return ibo
 
 
-def create_vao(vbo: int, ibo: int, num_components: int = 8) -> int:
-    """Create a Vertex Array Object."""
+def create_vao(vbo: int, ibo: int, num_components: int = 8, 
+               color_vbo: int = 0) -> int:
+    """Create a Vertex Array Object.
+    
+    For OpenGL ES 2.0 compatibility, uses separate attribute locations
+    for position (location 0) and color (location 1).
+    """
     vao = gl.glGenVertexArrays(1)
     gl.glBindVertexArray(vao)
     
     gl.glBindBuffer(gl.GL_ARRAY_BUFFER, vbo)
     gl.glEnableVertexAttribArray(0)
-    gl.glVertexAttribPointer(0, num_components, gl.GL_FLOAT, False, 
+    gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 
                              num_components * 4, None)
+    
+    if color_vbo:
+        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_vbo)
+        gl.glEnableVertexAttribArray(1)
+        gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False,
+                                 num_components * 4, 
+                                 ctypes.c_void_p(3 * 4))
     
     gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, ibo)
     
