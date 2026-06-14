@@ -19,14 +19,18 @@ if IS_MACOS_ARM:
     
     uniform mat4 projection;
     uniform mat4 view;
+    uniform float fogNear;
+    uniform float fogFar;
     
     varying vec3 fragment_color;
     varying float fragment_light;
+    varying float fog_distance;
     
     void main() {
         gl_Position = projection * view * vec4(aPos, 1.0);
         fragment_color = aColor;
         fragment_light = 0.85;
+        fog_distance = gl_Position.w;
     }
     """
     
@@ -35,12 +39,16 @@ if IS_MACOS_ARM:
     
     varying vec3 fragment_color;
     varying float fragment_light;
+    varying float fog_distance;
+    
+    uniform float fogNear;
+    uniform float fogFar;
     
     void main() {
         vec3 color = fragment_color * fragment_light;
         
-        // Add fog effect
-        float fog_factor = smoothstep(40.0, 120.0, gl_FragCoord.z / 1.0);
+        // Add fog effect based on distance
+        float fog_factor = smoothstep(fogNear, fogFar, fog_distance);
         vec3 fog_color = vec3(0.53, 0.61, 0.73);
         
         gl_FragColor = vec4(mix(color, fog_color, fog_factor * 0.3), 1.0);
@@ -64,17 +72,13 @@ if IS_MACOS_ARM:
     FRAGMENT_SHADER_SKY = """
     precision mediump float;
     
-    varying vec3 fragment_color;
-    varying float fragment_light;
+    uniform vec3 sky_top;
+    uniform vec3 sky_bottom;
     
     void main() {
-        vec3 color = fragment_color * fragment_light;
-        
-        // Add fog effect
-        float fog_factor = smoothstep(40.0, 120.0, gl_FragCoord.z / 1.0);
-        vec3 fog_color = vec3(0.53, 0.61, 0.73);
-        
-        gl_FragColor = vec4(mix(color, fog_color, fog_factor * 0.3), 1.0);
+        // Simple gradient sky
+        vec3 color = mix(sky_bottom, sky_top, 0.5);
+        gl_FragColor = vec4(color, 1.0);
     }
     """
     

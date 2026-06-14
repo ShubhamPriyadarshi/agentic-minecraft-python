@@ -3,8 +3,10 @@
 import pygame
 import OpenGL.GL as gl
 import numpy as np
+import platform
 from src.core.config import (WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE,
-                             TARGET_FPS, LOAD_DISTANCE, DAY_CYCLE_DURATION)
+                             TARGET_FPS, LOAD_DISTANCE, DAY_CYCLE_DURATION,
+                             FOG_NEAR, FOG_FAR)
 from src.world.world import World
 from src.world.blocks import HOTBAR_BLOCKS, BlockType, generate_block_textures
 from src.world.chunk import Chunk
@@ -185,6 +187,13 @@ class Game:
         gl.glUniformMatrix4fv(sky_view_loc, 1, False, view_matrix.astype(np.float32).flatten())
         self.renderer.draw_skybox()
         gl.glUseProgram(self.renderer.chunk_shader)
+        
+        # Set fog uniforms for ES2
+        if platform.system() == "Darwin" and platform.machine() == "arm64":
+            fog_near_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "fogNear")
+            fog_far_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "fogFar")
+            gl.glUniform1f(fog_near_loc, FOG_NEAR)
+            gl.glUniform1f(fog_far_loc, FOG_FAR)
         
         # Draw chunks
         gl.glEnable(gl.GL_DEPTH_TEST)
