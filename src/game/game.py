@@ -10,7 +10,7 @@ from src.core.config import (WINDOW_WIDTH, WINDOW_HEIGHT, WINDOW_TITLE,
 from src.world.world import World
 from src.world.blocks import HOTBAR_BLOCKS, BlockType, generate_block_textures
 from src.world.chunk import Chunk
-from src.rendering.renderer import Renderer
+from src.rendering.renderer import Renderer, IS_MACOS_ARM
 from src.rendering.hud import HUD
 from src.game.player import Player
 from src.game.particles import ParticleSystem
@@ -177,83 +177,77 @@ class Game:
         gl.glUniformMatrix4fv(view_loc, 1, False, view.astype(np.float32).flatten())
         gl.glUniformMatrix4fv(proj_loc, 1, False, proj.astype(np.float32).flatten())
         
-        # Draw skybox
-        gl.glUseProgram(self.renderer.sky_shader)
-        sky_proj_loc = gl.glGetUniformLocation(self.renderer.sky_shader, "projection")
-        sky_view_loc = gl.glGetUniformLocation(self.renderer.sky_shader, "view")
-        proj_matrix = gl.glGetFloatv(gl.GL_PROJECTION_MATRIX)
-        view_matrix = gl.glGetFloatv(gl.GL_MODELVIEW_MATRIX)
-        gl.glUniformMatrix4fv(sky_proj_loc, 1, False, proj_matrix.astype(np.float32).flatten())
-        gl.glUniformMatrix4fv(sky_view_loc, 1, False, view_matrix.astype(np.float32).flatten())
-        self.renderer.draw_skybox()
-        gl.glUseProgram(self.renderer.chunk_shader)
-        
-        # Set fog uniforms for ES2
-        if platform.system() == "Darwin" and platform.machine() == "arm64":
-            fog_near_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "fogNear")
-            fog_far_loc = gl.glGetUniformLocation(self.renderer.chunk_shader, "fogFar")
-            gl.glUniform1f(fog_near_loc, FOG_NEAR)
-            gl.glUniform1f(fog_far_loc, FOG_FAR)
+        # Draw skybox (OpenGL only)
+        if not IS_MACOS_ARM:
+            gl.glUseProgram(self.renderer.sky_shader)
+            sky_proj_loc = gl.glGetUniformLocation(self.renderer.sky_shader, "projection")
+            sky_view_loc = gl.glGetUniformLocation(self.renderer.sky_shader, "view")
+            proj_matrix = gl.glGetFloatv(gl.GL_PROJECTION_MATRIX)
+            view_matrix = gl.glGetFloatv(gl.GL_MODELVIEW_MATRIX)
+            gl.glUniformMatrix4fv(sky_proj_loc, 1, False, proj_matrix.astype(np.float32).flatten())
+            gl.glUniformMatrix4fv(sky_view_loc, 1, False, view_matrix.astype(np.float32).flatten())
+            self.renderer.draw_skybox()
+            gl.glUseProgram(self.renderer.chunk_shader)
         
         # Draw chunks
-        gl.glEnable(gl.GL_DEPTH_TEST)
-        gl.glDisable(gl.GL_BLEND)
-        
-        chunks = list(self.world.chunks.values())
-        for chunk in chunks:
-            if chunk.has_mesh and chunk.vertices.size > 0:
-                # Create VAO for this chunk if needed
-                if not chunk.vao or chunk.mesh_dirty:
-                    if chunk.vbo:
-                        gl.glDeleteBuffers(1, [chunk.vbo])
-                    if chunk.ibo:
-                        gl.glDeleteBuffers(1, [chunk.ibo])
-                    if chunk.vao:
-                        gl.glDeleteVertexArrays(1, [chunk.vao])
+        if IS_MACOS_ARM:
+            # Software renderer
+            chunks = list(self.world.chunks.values())
+            for chunk in chunks:
+                if chunk.has_mesh and chunk.vertices.size > 0:
+                    num_verts = len(chunk.vertices)
+                    indices = []
+                    for i in range(0, num_verts, 4):
+                        indices.extend([i, i+1, i+2, i, i+2, i+3])
+                    self.renderer.render_chunk(chunk.vertices, chunk.colors, indices)
+        else:
+            # OpenGL renderer
+            gl.glEnable(gl.GL_DEPTH_TEST)
+            gl.glDisable(gl.GL_BLEND)
+            
+            chunks = list(self.world.chunks.values())
+            for chunk in chunks:
+                if chunk.has_mesh and chunk.vertices.size > 0:
+                    if not chunk.vao or chunk.mesh_dirty:
+                        if chunk.vbo:
+                            gl.glDeleteBuffers(1, [chunk.vbo])
+                        if chunk.ibo:
+                            gl.glDeleteBuffers(1, [chunk.ibo])
+                        if chunk.vao:
+                            gl.glDeleteVertexArrays(1, [chunk.vao])
+                        
+                        if chunk.vertices.size > 0:
+                            chunk.vbo = gl.glGenBuffers(1)
+                            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, chunk.vbo)
+                            gl.glBufferData(gl.GL_ARRAY_BUFFER, chunk.vertices, gl.GL_STATIC_DRAW)
+                            
+                            color_vbo = gl.glGenBuffers(1)
+                            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_vbo)
+                            gl.glBufferData(gl.GL_ARRAY_BUFFER, chunk.colors, gl.GL_STATIC_DRAW)
+                            
+                            num_verts = len(chunk.vertices)
+                            indices = []
+                            for i in range(0, num_verts, 4):
+                                indices.extend([i, i+1, i+2, i, i+2, i+3])
+                            indices_arr = np.array(indices, dtype=np.uint32)
+                            
+                            chunk.ibo = gl.glGenBuffers(1)
+                            gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, chunk.ibo)
+                            gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, indices_arr, gl.GL_STATIC_DRAW)
+                            chunk.index_count = len(indices)
+                            
+                            chunk.vao = gl.glGenVertexArrays(1)
+                            gl.glBindVertexArray(chunk.vao)
+                            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, chunk.vbo)
+                            gl.glEnableVertexAttribArray(0)
+                            gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 12, None)
+                            gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_vbo)
+                            gl.glEnableVertexAttribArray(1)
+                            gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False, 12, None)
+                            gl.glBindVertexArray(0)
+                            gl.glDeleteBuffers(1, [color_vbo])
                     
-                    if chunk.vertices.size > 0:
-                        # Create position VBO
-                        chunk.vbo = gl.glGenBuffers(1)
-                        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, chunk.vbo)
-                        gl.glBufferData(gl.GL_ARRAY_BUFFER, chunk.vertices, gl.GL_STATIC_DRAW)
-                        
-                        # Create color VBO
-                        color_vbo = gl.glGenBuffers(1)
-                        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_vbo)
-                        gl.glBufferData(gl.GL_ARRAY_BUFFER, chunk.colors, gl.GL_STATIC_DRAW)
-                        
-                        # Create simple index buffer
-                        num_verts = len(chunk.vertices)
-                        indices = []
-                        for i in range(0, num_verts, 4):
-                            indices.extend([i, i+1, i+2, i, i+2, i+3])
-                        indices_arr = np.array(indices, dtype=np.uint32)
-                        
-                        chunk.ibo = gl.glGenBuffers(1)
-                        gl.glBindBuffer(gl.GL_ELEMENT_ARRAY_BUFFER, chunk.ibo)
-                        gl.glBufferData(gl.GL_ELEMENT_ARRAY_BUFFER, indices_arr, gl.GL_STATIC_DRAW)
-                        chunk.index_count = len(indices)
-                        
-                        # Create VAO with position (location 0) and color (location 1)
-                        chunk.vao = gl.glGenVertexArrays(1)
-                        gl.glBindVertexArray(chunk.vao)
-                        
-                        # Position attributes
-                        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, chunk.vbo)
-                        gl.glEnableVertexAttribArray(0)
-                        gl.glVertexAttribPointer(0, 3, gl.GL_FLOAT, False, 12, None)
-                        
-                        # Color attributes
-                        gl.glBindBuffer(gl.GL_ARRAY_BUFFER, color_vbo)
-                        gl.glEnableVertexAttribArray(1)
-                        gl.glVertexAttribPointer(1, 3, gl.GL_FLOAT, False, 12, None)
-                        
-                        gl.glBindVertexArray(0)
-                        
-                        # Delete temp color VBO after setup
-                        gl.glDeleteBuffers(1, [color_vbo])
-                
-                self.renderer.draw_chunk(chunk.vao, chunk.vbo, chunk.ibo, chunk.index_count)
+                    self.renderer.draw_chunk(chunk.vao, chunk.vbo, chunk.ibo, chunk.index_count)
         
         # Draw block highlight
         if self.highlight_pos:
